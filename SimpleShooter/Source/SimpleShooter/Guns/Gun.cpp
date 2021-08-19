@@ -79,7 +79,7 @@ void AGun::PullTrigger()
 
 			//Camera
 			APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
-			PlayerCamera->PlayCameraShake(CameraFireShake, 1);
+			PlayerCamera->StartMatineeCameraShake(CameraFireShake, 1);
 
 			
 			FVector ShotDirection;

@@ -40,30 +40,34 @@ public:
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(BlueprintPure)
-	bool IsDead() const;
+		bool IsDead() const;
 
 	UFUNCTION(BlueprintPure)
-	bool IsAccelerating() const;
+		bool IsAccelerating() const;
+
 	
 	UFUNCTION(BlueprintPure)
-	float GetHealtPercent() const;
-
-	UFUNCTION(BlueprintPure)
-		float GetRightAxis() const;
-
-
+		float GetHealthPercentage() const;
+	
 	UFUNCTION(BlueprintPure)
 		bool GetAnimationDebug() const;
 
 	UFUNCTION(BlueprintPure)
-	EPlayerMovementState GetMovementState();
+		EPlayerMovementState GetMovementState();
 	UFUNCTION(BlueprintPure)
-	EPlayerFightState GetFightState();
+		EPlayerFightState GetFightState();
+	UFUNCTION(BlueprintPure)
+		float GetDefaultMaxWalkSpeed();
+	
 
+	UFUNCTION()
 	virtual void Landed(const FHitResult& Hit) override;
 
-	void Shoot();
-	float GetDefaultMaxWalkSpeed();
+	float GetRightAxis() const;
+	//******************WEAPON******************//
+	
+
+	
 
 	UFUNCTION(BlueprintCallable)
 		void EquipWeaponInput();
@@ -89,49 +93,81 @@ public:
 	UFUNCTION(BlueprintCallable)
 		AGun* GetCurrentWeaponRefrence();
 	
-	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void Shoot();
 	
 private:
 
-	void Moveforward(float AxisValue);
-	void MoveRight(float AxisValue);
+	//******************INPUT FUNCTIONS******************//
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void Moveforward(float AxisValue);
+	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void MoveRight(float AxisValue);
+	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void LookUpRate(float AxisValue);
+	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void LookRightRate(float AxisValue);
+	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void RunStart();
+	
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void RunEnd();
 
-	void LookUpRate(float AxisValue);
-	void LookRightRate(float AxisValue);
+	UFUNCTION(BlueprintCallable, Category = Character)
+		void CrouchInput();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void AimStart();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void AimEnd();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void ShootStart();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void ShootEnd();
+
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void Reload();
 
 	virtual void Jump() override;
 	
-	void RunStart();
-	void RunEnd();
-
-	void AimStart();
-	void AimEnd();
-
-	void CrouchInput();
-
-
-	void ShootEnd();
+	//******************Character Status******************//
 	void ChangeMovementState(EPlayerMovementState NewMovementState);
 	void ChangeFightState(EPlayerFightState NewFightState);
+
+	//Changes walk speed based on current movement state
 	void UpdateWalkSpeed(EPlayerMovementState CurrentMovementState);
 
-	void DropWeapon();
-	void Reload();
-	void ChangeGunInInventory();
-	void AttachGun(FName SocketName, int32 GunNumber);
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void DropWeapon();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void ChangeGunInInventory();
+	
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		void AttachGun(FName SocketName, int32 GunNumber);
 
-	AGun*  FindClosestWeapon(TArray<AActor* >& OverlappedGuns);
+	UFUNCTION(BlueprintCallable, Category = Weapon)
+		AGun*  FindClosestWeapon(TArray<AActor* >& OverlappedGuns);
 
-	void ChangeFOV();
+	//interpolates smoothly form current camera fov to EndFOV and is used by timers
+	UFUNCTION(BlueprintCallable, Category = Camera)
+		void ChangeCameraFOV();
 
-	void FlipFlopCharacterDebug();
-	void FlipFlopGunDebug();
-	void FlipFlopAnimationDebug();
-
-
+	//Updates EndFov based on current movement and fight state and enables the timer 
+	UFUNCTION(BlueprintCallable, Category = Camera)
+		void UpdateEndFOV();
+	 
+	float RightAxis; //right axis input
 	
 	UPROPERTY(EditAnywhere)
-	float RotationRate = 70;
+		float RotationRate = 70;
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<AGun> GunClass;
 
@@ -155,9 +191,7 @@ private:
 	float MaxHealth = 100;
 	UPROPERTY(VisibleAnywhere)
 	float Health = 0;
-
-
-	float RightAxis;
+	
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly , Category = "Movement" ,  meta=(AllowPrivateAccess = "true"))
 	float MaxWalkSpeed;
@@ -184,14 +218,15 @@ private:
 	bool bIsMovingForward;
 	bool bIsMovingRight;
 	bool bIsHoldingAimButton;
+	bool bIsHoldingRunButton;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 		bool bCharacterDebug;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 		bool bGunDebug;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 		bool bAnimationDebug;
 
 	UPROPERTY()
@@ -217,7 +252,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UMatineeCameraShake> CameraShake;
 
-	
+
+
+	void FlipFlopCharacterDebug();
+	void FlipFlopGunDebug();
+	void FlipFlopAnimationDebug();
+	void CharacterDebug();
 };
 
 

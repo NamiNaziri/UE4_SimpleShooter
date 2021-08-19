@@ -71,47 +71,14 @@ void AShooterCharacter::Tick(float DeltaTime)
 	{
 		GoToNearestWeaponLocation();
 	}
-	
+
+
+
+	//Debug massages
 	if(bCharacterDebug)
 	{
-		int32 PlayerSpeed = FVector::DotProduct(GetVelocity(), GetActorRotation().Vector());
-
-		//CurrentPlayerMovementState
-		const FString MovementEnumString = UEnum::GetValueAsString<EPlayerMovementState>(GetMovementState());
-		const FString FightEnumString = UEnum::GetValueAsString<EPlayerFightState>(GetFightState());
-
-
-
-		const FVector ActorForwardVectorNormalize = GetActorForwardVector().GetSafeNormal();
-		const FVector LastMovementInputVectorNormalize = GetLastMovementInputVector().GetSafeNormal();
-
-
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "Speed: " + GetVelocity().ToString());
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "Location: " + GetActorLocation().ToString());
-
-
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "ActorForwardVector: " + ActorForwardVectorNormalize.ToString());
-
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "LastMovementInput: " + LastMovementInputVectorNormalize.ToString());
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "Mesh Component Velocity: " + GetMesh()->GetComponentVelocity().ToString());
-
-
-		FVector StartLoc1 = GetActorLocation();
-		FVector EndLoc1 = StartLoc1 + GetActorForwardVector() * 150;
-		DrawDebugLine(GetWorld(), StartLoc1, EndLoc1, FColor::Magenta);
-
-
-
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "MovementMode: " + MovementEnumString);
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "FightMode: " + FightEnumString);
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "GunIndex:  " + FString::FromInt(CurrentGunIndex));
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "OrientRotationToMovement:  " + FString((GetCharacterMovement()->bOrientRotationToMovement ? "true" : "false")));
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "UseControllerDesiredRotation:  " + FString(GetCharacterMovement()->bUseControllerDesiredRotation ? "true" : "false"));
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Magenta, "UseControllerRotationYaw:  " + FString((bUseControllerRotationYaw ? "true" : "false")));
-
+		CharacterDebug();
 	}
-
-	
 	
 	if(bGunDebug)
 	{
@@ -137,14 +104,14 @@ void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 
 	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AShooterCharacter::Moveforward);
 	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AShooterCharacter::MoveRight);
-	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &APawn::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis(TEXT("LookRight"), this, &APawn::AddControllerYawInput);
+	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &AShooterCharacter::LookUpRate);
+	PlayerInputComponent->BindAxis(TEXT("LookRight"), this, &AShooterCharacter::LookRightRate);
 	PlayerInputComponent->BindAxis(TEXT("LookUpRate"), this, &AShooterCharacter::LookUpRate);
 	PlayerInputComponent->BindAxis(TEXT("LookRightRate"), this, &AShooterCharacter::LookRightRate);
 
 
 	PlayerInputComponent->BindAction(TEXT("Jump"),  EInputEvent::IE_Pressed, this, &AShooterCharacter::Jump);
-	PlayerInputComponent->BindAction(TEXT("Shoot"), EInputEvent::IE_Pressed, this, &AShooterCharacter::Shoot);
+	PlayerInputComponent->BindAction(TEXT("Shoot"), EInputEvent::IE_Pressed, this, &AShooterCharacter::ShootStart);
 	PlayerInputComponent->BindAction(TEXT("Shoot"), EInputEvent::IE_Released, this, &AShooterCharacter::ShootEnd);
 	PlayerInputComponent->BindAction(TEXT("Sprint"),EInputEvent::IE_Pressed, this , &AShooterCharacter::RunStart);
 	PlayerInputComponent->BindAction(TEXT("Sprint"),EInputEvent::IE_Released, this , &AShooterCharacter::RunEnd);
@@ -206,14 +173,9 @@ bool AShooterCharacter::IsAccelerating() const
 	return  !(FMath::IsNearlyEqual(GetCharacterMovement()->GetCurrentAcceleration().Size() , 0.0f , 0.1f));
 }
 
-float AShooterCharacter::GetHealtPercent() const
+float AShooterCharacter::GetHealthPercentage() const
 {
 	return Health / MaxHealth;
-}
-
-float AShooterCharacter::GetRightAxis() const
-{
-	return RightAxis;
 }
 
 bool AShooterCharacter::GetAnimationDebug() const
@@ -243,7 +205,15 @@ void AShooterCharacter::Moveforward(float AxisValue)
 	}
 	else if ( !(CurrentPlayerMovementState == EPlayerMovementState::Running) && !(CurrentPlayerMovementState == EPlayerMovementState::Walking))
 	{
-		ChangeMovementState(EPlayerMovementState::Walking);
+		if(bIsHoldingRunButton)
+		{
+			ChangeMovementState(EPlayerMovementState::Running);
+		}
+		else
+		{
+			ChangeMovementState(EPlayerMovementState::Walking);
+		}
+		
 	}
 
 	
@@ -262,9 +232,6 @@ void AShooterCharacter::Moveforward(float AxisValue)
 
 void AShooterCharacter::MoveRight(float AxisValue)
 {
-
-	
-	
 	RightAxis = AxisValue;
 	if(FMath::IsNearlyEqual(AxisValue,0))
 	{
@@ -293,19 +260,19 @@ void AShooterCharacter::MoveRight(float AxisValue)
 	const FVector Direction = FRotationMatrix(YawRotation.GetNormalized()).GetUnitAxis(EAxis::Y).GetSafeNormal();
 	// add movement in that direction
 
-    AddMovementInput(Direction.GetSafeNormal(), AxisValue );
+    AddMovementInput(Direction.GetSafeNormal(), AxisValue  );
 
 }
 
 void AShooterCharacter::LookUpRate(float AxisValue)
 {
-	AddControllerPitchInput(AxisValue *  GetWorld()->GetDeltaSeconds());
+	AddControllerPitchInput(AxisValue * RotationRate *  GetWorld()->GetDeltaSeconds());
 }
 
 
 void AShooterCharacter::LookRightRate(float AxisValue)
 {
-	AddControllerYawInput(AxisValue * GetWorld()->GetDeltaSeconds());
+	AddControllerYawInput(AxisValue * RotationRate * GetWorld()->GetDeltaSeconds());
 }
 
 void AShooterCharacter::Jump()
@@ -320,6 +287,10 @@ void AShooterCharacter::Landed(const FHitResult& Hit)
 	ChangeMovementState(EPlayerMovementState::Walking);
 }
 
+float AShooterCharacter::GetRightAxis() const
+{
+	return RightAxis;
+}
 
 
 void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementState)
@@ -364,21 +335,8 @@ void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementStat
 		}
 	}
 
-
-	if(NewMovementState == EPlayerMovementState::Running && CurrentPlayerFightState != EPlayerFightState::Aim)
-	{
-
-		EndFOV = RunningFOV;
-		FOVSpeed = RunFOVSpeed;
-		GetWorldTimerManager().SetTimer(FOVTimerHandle, this, &AShooterCharacter::ChangeFOV, GetWorld()->DeltaTimeSeconds, true, 0.f);
-	}
-	else if (CurrentPlayerFightState != EPlayerFightState::Aim)
-	{
-		EndFOV = DefaultFOV;
-		FOVSpeed = RunFOVSpeed;
-		GetWorldTimerManager().SetTimer(FOVTimerHandle, this, &AShooterCharacter::ChangeFOV, GetWorld()->DeltaTimeSeconds, true, 0.f);
-
-	}
+	
+	UpdateEndFOV();
 
 }
 
@@ -448,41 +406,13 @@ void AShooterCharacter::ChangeFightState(EPlayerFightState NewFightState)
 	}
 	
 	APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
-	
-	
-	if(NewFightState == EPlayerFightState::Aim)
+	if (PlayerCamera)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("In aim"));
-		if (PlayerCamera)
-		{
-			PlayerCamera->StartMatineeCameraShake(CameraShake, 1);
-			FOVSpeed = AimFOVSpeed;
-			EndFOV = AimFOV;
-			GetWorldTimerManager().SetTimer(FOVTimerHandle, this, &AShooterCharacter::ChangeFOV, GetWorld()->DeltaTimeSeconds,true,0.f);
-			
-		}
+		PlayerCamera->PlayCameraShake(CameraShake, 1);
 	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("In ELSE"));
-		if (PlayerCamera)
-		{
-			if(CurrentPlayerMovementState == EPlayerMovementState::Running)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Run FOV"));
-				FOVSpeed = AimFOVSpeed;
-				EndFOV = RunningFOV;
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Default FOV"));
-				FOVSpeed = AimFOVSpeed;
-				EndFOV = DefaultFOV;
-			}
-			
-			GetWorldTimerManager().SetTimer(FOVTimerHandle, this, &AShooterCharacter::ChangeFOV, GetWorld()->DeltaTimeSeconds, true, 0.f);
-		}
-	}
+	
+	UpdateEndFOV();
+
 }
 
 void AShooterCharacter::UpdateWalkSpeed(EPlayerMovementState CurrentMovementState)
@@ -505,18 +435,19 @@ void AShooterCharacter::UpdateWalkSpeed(EPlayerMovementState CurrentMovementStat
 }
 
 
-void AShooterCharacter::ChangeFOV()
+void AShooterCharacter::ChangeCameraFOV()
 {
 	APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
 	if(PlayerCamera)
 	{
-		const float targetFOV = FMath::FInterpTo(PlayerCamera->GetFOVAngle(), EndFOV,GetWorld()->GetDeltaSeconds(), FOVSpeed);
-		if (FMath::IsNearlyEqual(targetFOV, EndFOV))
+		float targetFOV = FMath::FInterpTo(PlayerCamera->GetFOVAngle(), EndFOV,GetWorld()->GetDeltaSeconds(), FOVSpeed);
+		if (FMath::Abs(targetFOV - EndFOV) < 0.1)
 		{
 			if (GetWorldTimerManager().IsTimerActive(FOVTimerHandle))
 			{
 				GetWorldTimerManager().ClearTimer(FOVTimerHandle);
 			}
+			targetFOV = EndFOV;
 			
 		}
 
@@ -532,6 +463,50 @@ void AShooterCharacter::ChangeFOV()
 	
 }
 
+void AShooterCharacter::UpdateEndFOV()
+{
+
+	bool IsFovChanged = false;
+	
+	if (CurrentPlayerFightState == EPlayerFightState::Aim)
+	{
+		if (EndFOV != AimFOV)
+		{
+			IsFovChanged = true;
+			FOVSpeed = AimFOVSpeed;
+			EndFOV = AimFOV;
+		}
+
+	}
+	else if (CurrentPlayerMovementState == EPlayerMovementState::Running)
+	{
+		if (EndFOV != RunningFOV)
+		{
+			IsFovChanged = true;
+			EndFOV = RunningFOV;
+			FOVSpeed = RunFOVSpeed;
+		}
+		
+	}
+	else
+	{
+		if (EndFOV != DefaultFOV)
+		{
+			IsFovChanged = true;
+
+			FOVSpeed = AimFOVSpeed;
+			EndFOV = DefaultFOV;
+		}
+
+	}
+
+
+	if (!GetWorldTimerManager().IsTimerActive(FOVTimerHandle) && IsFovChanged)
+	{
+		GetWorldTimerManager().SetTimer(FOVTimerHandle, this, &AShooterCharacter::ChangeCameraFOV, GetWorld()->DeltaTimeSeconds, true, 0.f);
+	}
+}
+
 EPlayerMovementState AShooterCharacter::GetMovementState()
 {
 	return CurrentPlayerMovementState;
@@ -545,6 +520,7 @@ EPlayerFightState AShooterCharacter::GetFightState()
 
 void AShooterCharacter::RunStart()
 {
+	bIsHoldingRunButton = true;
 	if(bIsCrouched)
 	{
 		
@@ -554,6 +530,7 @@ void AShooterCharacter::RunStart()
 
 void AShooterCharacter::RunEnd()
 {
+	bIsHoldingRunButton = false;
 	ChangeMovementState(EPlayerMovementState::Walking);
 }
 
@@ -592,6 +569,11 @@ void AShooterCharacter::CrouchInput()
 	{
 		Super::UnCrouch();
 	}
+}
+
+void AShooterCharacter::ShootStart()
+{
+	Shoot();
 }
 
 void AShooterCharacter::EquipWeaponInput()
@@ -815,6 +797,45 @@ void AShooterCharacter::AttachGun(FName SocketName, int32 GunNumber)
 } 
 
 
+void AShooterCharacter::Shoot()
+{
+
+	if (GetFightState() != EPlayerFightState::Aim)
+	{
+		ShootEnd();
+
+		return;
+	}
+	if (GunInventory.Num() != 0)
+	{
+		if (GunInventory[CurrentGunIndex])
+		{
+			GunInventory[CurrentGunIndex]->PullTrigger();
+		}
+	}
+
+}
+
+float AShooterCharacter::GetDefaultMaxWalkSpeed()
+{
+	return MaxWalkSpeed;
+}
+
+
+void AShooterCharacter::ShootEnd()
+{
+	if (GunInventory.Num() != 0)
+	{
+		if (GunInventory[CurrentGunIndex])
+		{
+			GunInventory[CurrentGunIndex]->ReleaseTrigger();
+		}
+	}
+
+}
+
+
+
 
 
 
@@ -833,41 +854,53 @@ void AShooterCharacter::FlipFlopAnimationDebug()
 	bAnimationDebug = !bAnimationDebug;
 }
 
-void AShooterCharacter::Shoot()
+void AShooterCharacter::CharacterDebug()
 {
+	int32 PlayerSpeed = FVector::DotProduct(GetVelocity(), GetActorRotation().Vector());
 
-	if(GetFightState() != EPlayerFightState::Aim)
-	{
-		ShootEnd();
+	//CurrentPlayerMovementState
+	const FString MovementEnumString = UEnum::GetValueAsString<EPlayerMovementState>(GetMovementState());
+	const FString FightEnumString = UEnum::GetValueAsString<EPlayerFightState>(GetFightState());
 
-		return;
-	}
-	if(GunInventory.Num() != 0 )
+
+
+	const FVector ActorForwardVectorNormalize = GetActorForwardVector().GetSafeNormal();
+	const FVector LastMovementInputVectorNormalize = GetLastMovementInputVector().GetSafeNormal();
+
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Speed: " + GetVelocity().ToString());
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Location: " + GetActorLocation().ToString());
+
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "ActorForwardVector: " + ActorForwardVectorNormalize.ToString());
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "LastMovementInput: " + LastMovementInputVectorNormalize.ToString());
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Mesh Component Velocity: " + GetMesh()->GetComponentVelocity().ToString());
+
+
+	FVector StartLoc1 = GetActorLocation();
+	FVector EndLoc1 = StartLoc1 + GetActorForwardVector() * 150;
+	DrawDebugLine(GetWorld(), StartLoc1, EndLoc1, FColor::Magenta);
+
+
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "MovementMode: " + MovementEnumString);
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "FightMode: " + FightEnumString);
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "GunIndex:  " + FString::FromInt(CurrentGunIndex));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "OrientRotationToMovement:  " + FString((GetCharacterMovement()->bOrientRotationToMovement ? "true" : "false")));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "UseControllerDesiredRotation:  " + FString(GetCharacterMovement()->bUseControllerDesiredRotation ? "true" : "false"));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "UseControllerRotationYaw:  " + FString((bUseControllerRotationYaw ? "true" : "false")));
+
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Is timer active:  " + FString((GetWorldTimerManager().IsTimerActive(FOVTimerHandle) ? "true" : "false")));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "End FOV:  " + FString::SanitizeFloat(EndFOV));
+
+	APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
+	if (PlayerCamera)
 	{
-		if(GunInventory[CurrentGunIndex])
-		{
-			GunInventory[CurrentGunIndex]->PullTrigger();			
-		}
+		
+
+		GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Camera FOV:  " + FString::SanitizeFloat(PlayerCamera->GetFOVAngle()));
+
 	}
 
 }
-
-float AShooterCharacter::GetDefaultMaxWalkSpeed()
-{
-	return MaxWalkSpeed;
-}
-
-
-void AShooterCharacter::ShootEnd()
-{
-	if(GunInventory.Num() != 0 )
-	{
-		if(GunInventory[CurrentGunIndex])
-		{
-			GunInventory[CurrentGunIndex]->ReleaseTrigger();
-		}
-	}
-	
-}
-
-
