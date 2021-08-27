@@ -220,13 +220,13 @@ void AShooterCharacter::Moveforward(float AxisValue)
 	// find out which way is forward
 	const FRotator Rotation = Controller->GetControlRotation();
 	const FRotator YawRotation(0, Rotation.Yaw, 0);
-
+	
 	// get forward vector
 	const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal();
 	//AddMovementInput(Direction, AxisValue);
 	
 	
-	AddMovementInput(Direction.GetSafeNormal(), AxisValue);
+	AddMovementInput(Direction.GetSafeNormal(), AxisValue );
 	
 }
 
@@ -260,7 +260,7 @@ void AShooterCharacter::MoveRight(float AxisValue)
 	const FVector Direction = FRotationMatrix(YawRotation.GetNormalized()).GetUnitAxis(EAxis::Y).GetSafeNormal();
 	// add movement in that direction
 
-    AddMovementInput(Direction.GetSafeNormal(), AxisValue  );
+    AddMovementInput(Direction.GetSafeNormal(), AxisValue * rightMultiplier);
 
 }
 
@@ -494,7 +494,7 @@ void AShooterCharacter::UpdateEndFOV()
 		{
 			IsFovChanged = true;
 
-			FOVSpeed = AimFOVSpeed;
+			FOVSpeed = RunFOVSpeed;
 			EndFOV = DefaultFOV;
 		}
 
@@ -735,25 +735,36 @@ bool AShooterCharacter::IsReloading()
 
 AGun* AShooterCharacter::GetCurrentWeaponRefrence()
 {
-	return GunInventory[CurrentGunIndex];
+	if(GunInventory.Num() > 0)
+	{
+		return GunInventory[CurrentGunIndex];
+	}
+	else
+	{
+		return nullptr;
+	}
 }
 
 
 void AShooterCharacter::DropWeapon()
 {
-	if(GunInventory.Num() > 0)
+	if(GunInventory.Num() > 0 )
 	{
-		const int prevGunIndex = CurrentGunIndex;
-		GunInventory[prevGunIndex]->Drop();
-		ChangeGunInInventory();
-		GunInventory[prevGunIndex]->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-		GunInventory.RemoveAt(prevGunIndex);
-		CurrentGunIndex = GunInventory.Num() - 1;
-
-		if (CurrentGunIndex == -1)
+		if(!GunInventory[CurrentGunIndex]->IsReloading())
 		{
-			ChangeFightState(EPlayerFightState::NotArmed);
+			const int prevGunIndex = CurrentGunIndex;
+			GunInventory[prevGunIndex]->Drop();
+			ChangeGunInInventory();
+			GunInventory[prevGunIndex]->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+			GunInventory.RemoveAt(prevGunIndex);
+			CurrentGunIndex = GunInventory.Num() - 1;
+
+			if (CurrentGunIndex == -1)
+			{
+				ChangeFightState(EPlayerFightState::NotArmed);
+			}
 		}
+		
 	}
 	
 }

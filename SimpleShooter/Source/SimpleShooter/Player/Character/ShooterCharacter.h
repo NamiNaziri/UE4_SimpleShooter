@@ -207,6 +207,12 @@ private:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly , Category = "Movement" ,  meta=(AllowPrivateAccess = "true"))
 	float AimSpeedCoefficient;
 
+
+	//Expriment
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+		float rightMultiplier = 1;
+
+	
 	UPROPERTY()
 	float SpeedDecelerator = 0;
 

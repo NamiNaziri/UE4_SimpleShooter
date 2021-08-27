@@ -54,7 +54,14 @@ void AGun::PullTrigger()
 	{
 		return;
 	}
+
+
+	if(bSingleFire && !bIsReleasedTheTrigger)
+	{
+		return;
+	}
 	
+	bIsReleasedTheTrigger = false;
 	
 	if(bCanFire && !bIsReloading)
 	{
@@ -73,7 +80,7 @@ void AGun::PullTrigger()
 				return;
 			}
 
-			UGameplayStatics::SpawnEmitterAttached(MuzzleFlashParticle, Mesh, TEXT("MuzzleFlashSocket"));
+			//UGameplayStatics::SpawnEmitterAttached(MuzzleFlashParticle, Mesh, TEXT("MuzzleFlashSocket"));
 			//Sound
 			UGameplayStatics::SpawnSoundAttached(MuzzleSound, Mesh, TEXT("MuzzleFlashSocket"));
 
@@ -81,6 +88,14 @@ void AGun::PullTrigger()
 			APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
 			PlayerCamera->StartMatineeCameraShake(CameraFireShake, 1);
 
+			//Recoil Animation
+			AShooterCharacter* PlayerCharacter = Cast<AShooterCharacter>(GetOwner());
+
+			UAnimInstance* PlayerAnimInstance = PlayerCharacter->GetMesh()->GetAnimInstance();
+			if (!PlayerAnimInstance->Montage_IsPlaying(FireRecoilContinuousMontage))
+			{
+				PlayerAnimInstance->Montage_Play(FireRecoilContinuousMontage);
+			}
 			
 			FVector ShotDirection;
 			FHitResult HitResult;
@@ -164,6 +179,7 @@ void AGun::PullTrigger()
 
 void AGun::ReleaseTrigger()
 {
+	bIsReleasedTheTrigger = true;
 	GetWorld()->GetTimerManager().ClearTimer(FireRateTimerHandle);
 	bool bIsDelayTimerActive = GetWorld()->GetTimerManager().IsTimerActive(ReleaseTriggerDelayTimerHandle);
 	if(!bIsDelayTimerActive)
@@ -172,7 +188,14 @@ void AGun::ReleaseTrigger()
                                                             bCanFire = true;
                                                         }, FireRate, false);
 	}
-	
+	AShooterCharacter* PlayerCharacter = Cast<AShooterCharacter>(GetOwner());
+	UAnimInstance* PlayerAnimInstance = PlayerCharacter->GetMesh()->GetAnimInstance();
+	if(PlayerAnimInstance->Montage_IsPlaying(FireRecoilContinuousMontage))
+	{
+		PlayerAnimInstance->Montage_Stop(FireRecoilContinuousMontage->BlendOut.GetAlpha()
+			, FireRecoilContinuousMontage);
+	}
+
 }
 
 void AGun::SetGunEquipOverlapEventEnable(bool bEnable)

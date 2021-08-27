@@ -44,6 +44,9 @@ private:
 	UAnimMontage* ReloadMontage;
 
 	UPROPERTY(EditAnywhere)
+	UAnimMontage* FireRecoilContinuousMontage;
+
+	UPROPERTY(EditAnywhere)
 	float Range = 100000;
 
 	UPROPERTY(EditAnywhere)
@@ -67,9 +70,12 @@ private:
 	UPROPERTY(EditAnywhere)
 	float FireRate = 0.5f;
 
+	UPROPERTY(EditAnywhere)
+	bool bSingleFire = false;
+
 	bool bCanFire = true;
 	bool bIsReloading = false;
-
+	bool bIsReleasedTheTrigger = true;
 	//* if Gun has ammo and mag is empty reload automaticly *//
 	UPROPERTY(EditAnywhere)
 	bool bAutoReload = false;
