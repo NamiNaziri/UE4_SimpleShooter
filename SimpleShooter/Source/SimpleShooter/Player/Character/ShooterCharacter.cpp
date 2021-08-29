@@ -24,8 +24,11 @@ AShooterCharacter::AShooterCharacter()
 
 	//Initialization
 
+	
+	
 	CurrentPlayerMovementState = EPlayerMovementState::Idle;
 	CurrentPlayerFightState = EPlayerFightState::NotArmed;
+	CurrentPlayerCoverState = EPlayerCoverState::None;
 
 	MaxWalkSpeed = 300;
 	MaxRunSpeed = 600;
@@ -41,6 +44,10 @@ AShooterCharacter::AShooterCharacter()
 	CurrentSpeedCoefficient = NotArmedSpeedCoefficient;
 	GetCharacterMovement()->MaxWalkSpeed = MaxWalkSpeed - SpeedDecelerator;
 	GetCharacterMovement()->MaxWalkSpeedCrouched = MaxCrouchSpeed - SpeedDecelerator;
+
+	bIsRightMoveEnabled = true;
+	bIsForwardMoveEnabled = true;
+
 	
 	bAnimationDebug = false;
 	bCharacterDebug = true;
@@ -55,7 +62,11 @@ void AShooterCharacter::BeginPlay()
 	Health = MaxHealth;
 	UE_LOG(LogTemp,Warning , TEXT("%d"), Health);
 
-	
+	CoverComponent = FindComponentByClass<UCoverComponent>();
+	if (!CoverComponent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No Cover Component Found"));
+	}
 
 	
 
@@ -124,6 +135,8 @@ void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction(TEXT("Aim"), EInputEvent::IE_Pressed , this, &AShooterCharacter::AimStart);
 	PlayerInputComponent->BindAction(TEXT("Aim"), EInputEvent::IE_Released , this, &AShooterCharacter::AimEnd);
 	// add crouch
+	PlayerInputComponent->BindAction(TEXT("Crouch"), EInputEvent::IE_Pressed, this, &AShooterCharacter::CrouchAndCoverStart);
+	//PlayerInputComponent->BindAction(TEXT("Crouch"), EInputEvent::IE_Released, this, &AShooterCharacter::CrouchAndCoverEnd);
 
 	//Debug
 	PlayerInputComponent->BindAction(TEXT("AnimationDebug"), EInputEvent::IE_Pressed, this, &AShooterCharacter::FlipFlopAnimationDebug);
@@ -185,9 +198,8 @@ bool AShooterCharacter::GetAnimationDebug() const
 
 void AShooterCharacter::Moveforward(float AxisValue)
 {
-	
-	
-
+	LastMovementInput.X = AxisValue;
+	LastMovementInput.Normalize();
 	if( FMath::IsNearlyEqual(AxisValue,0))
 	{
 		bIsMovingForward = false;
@@ -216,24 +228,35 @@ void AShooterCharacter::Moveforward(float AxisValue)
 		
 	}
 
+	if(AxisValue && bIsForwardMoveEnabled)
+	{
+		
+
+		FVector Direction;
+		if (CurrentPlayerFightState == EPlayerFightState::Aim)
+		{
+			Direction = CalculateMovementYaw(AxisValue, true, true);
+			AddMovementInput(Direction.GetSafeNormal(), AxisValue);
+		}
+		else
+		{
+			Direction = CalculateMovementYaw(AxisValue, true,false);
+			AddMovementInput(Direction.GetSafeNormal(), FMath::Abs(AxisValue));
+		}
+
+		
+	}
 	
-	// find out which way is forward
-	const FRotator Rotation = Controller->GetControlRotation();
-	const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
-	// get forward vector
-	const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal();
-	//AddMovementInput(Direction, AxisValue);
-	
-	
-	AddMovementInput(Direction.GetSafeNormal(), AxisValue );
 	
 }
 
 void AShooterCharacter::MoveRight(float AxisValue)
 {
+	LastMovementInput.Y= AxisValue;
+	LastMovementInput.Normalize();
+	
 	RightAxis = AxisValue;
-	if(FMath::IsNearlyEqual(AxisValue,0))
+	if (FMath::IsNearlyEqual(AxisValue, 0))
 	{
 		bIsMovingRight = false;
 	}
@@ -242,25 +265,43 @@ void AShooterCharacter::MoveRight(float AxisValue)
 		bWantsToGrabWeapon = false;
 		bIsMovingRight = true;
 	}
-	
-	if(FMath::IsNearlyEqual(AxisValue,0) && !bIsMovingForward && !bWantsToGrabWeapon)
+
+	if (FMath::IsNearlyEqual(AxisValue, 0) && !bIsMovingForward && !bWantsToGrabWeapon)
 	{
 		ChangeMovementState(EPlayerMovementState::Idle);
-		
+
 	}
-	else if ( !(CurrentPlayerMovementState == EPlayerMovementState::Running) && !(CurrentPlayerMovementState == EPlayerMovementState::Walking))
+	else if (!(CurrentPlayerMovementState == EPlayerMovementState::Running) && !(CurrentPlayerMovementState == EPlayerMovementState::Walking))
 	{
 		ChangeMovementState(EPlayerMovementState::Walking);
 	}
-	// find out which way is right
-	const FRotator Rotation = Controller->GetControlRotation();
-	const FRotator YawRotation(0, Rotation.Yaw, 0);
 	
-	// get right vector 
-	const FVector Direction = FRotationMatrix(YawRotation.GetNormalized()).GetUnitAxis(EAxis::Y).GetSafeNormal();
-	// add movement in that direction
-
-    AddMovementInput(Direction.GetSafeNormal(), AxisValue * rightMultiplier);
+	if(AxisValue && bIsRightMoveEnabled)
+	{
+		if(CurrentPlayerCoverState == EPlayerCoverState::None) // Not in the cover
+		{
+			FVector Direction;
+			if(CurrentPlayerFightState ==EPlayerFightState::Aim )
+			{
+				Direction = CalculateMovementYaw(AxisValue, false, true);
+				AddMovementInput(Direction.GetSafeNormal(), AxisValue);
+			}
+			else
+			{
+				Direction = CalculateMovementYaw(AxisValue, false,false);
+				AddMovementInput(Direction.GetSafeNormal(), FMath::Abs(AxisValue));
+			}
+			
+			
+			
+		}
+		else
+		{
+			//Since we are changing the rotation Axis Value need to be multiplied by -1
+			AddMovementInput(GetActorRightVector(), -1 * AxisValue );
+		}
+	}
+	
 
 }
 
@@ -272,6 +313,8 @@ void AShooterCharacter::LookUpRate(float AxisValue)
 
 void AShooterCharacter::LookRightRate(float AxisValue)
 {
+	
+	
 	AddControllerYawInput(AxisValue * RotationRate * GetWorld()->GetDeltaSeconds());
 }
 
@@ -279,6 +322,45 @@ void AShooterCharacter::Jump()
 {
 	Super::Jump();
 	ChangeMovementState(EPlayerMovementState::Jumping);
+}
+
+void AShooterCharacter::CrouchAndCoverStart()
+{
+	
+
+	if(CurrentPlayerCoverState != EPlayerCoverState::None) // flip flop!
+	{
+		ChangeCoverState(EPlayerCoverState::None);
+		return;
+	}
+	else
+	{
+		const FCoverQuery CoverQuery = CoverComponent->EnvironmentalQuery();
+		if (CoverQuery.bHitMAx)
+		{
+			ChangeCoverState(EPlayerCoverState::StandingCover);
+			SetActorRotation(CoverQuery.HitMAx.ImpactNormal.Rotation());
+			
+		}
+		else if (CoverQuery.bHitMin)
+		{
+			ChangeCoverState(EPlayerCoverState::CrouchCover);
+		}
+		else
+		{
+
+			//TODO Crouch
+		}
+	}
+	
+	
+
+	
+}
+
+void AShooterCharacter::CrouchAndCoverEnd()
+{
+	
 }
 
 void AShooterCharacter::Landed(const FHitResult& Hit)
@@ -305,7 +387,6 @@ void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementStat
 	case EPlayerMovementState::Idle:
 		{
 			
-			CurrentPlayerMovementState = EPlayerMovementState::Idle;
 			break;
 			
 		}
@@ -313,8 +394,7 @@ void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementStat
 		{
 			//Handle Orient Movement in animBP
 			
-			CurrentPlayerMovementState = EPlayerMovementState::Walking;
-			UpdateWalkSpeed(CurrentPlayerMovementState);
+			UpdateWalkSpeed();
 			
 			break;
 		}
@@ -322,15 +402,14 @@ void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementStat
 	case EPlayerMovementState::Running:
 		
 		{
-			CurrentPlayerMovementState = EPlayerMovementState::Running;
-			UpdateWalkSpeed(CurrentPlayerMovementState);
+			
+			UpdateWalkSpeed();
 			break;
 		}
 
 		
 	case EPlayerMovementState::Jumping:
 		{
-			CurrentPlayerMovementState = EPlayerMovementState::Jumping;
 			break;
 		}
 	}
@@ -339,6 +418,8 @@ void AShooterCharacter::ChangeMovementState(EPlayerMovementState NewMovementStat
 	UpdateEndFOV();
 
 }
+
+
 
 /* The Controller Settings Set the Idle States
  * This Could Be Change by animation instance
@@ -354,7 +435,7 @@ void AShooterCharacter::ChangeFightState(EPlayerFightState NewFightState)
 		case EPlayerFightState::NotArmed:
 		{
 			SpeedDecelerator = NotArmedSpeedCoefficient;
-			UpdateWalkSpeed(CurrentPlayerMovementState);
+			UpdateWalkSpeed();
 				
 			if (CurrentPlayerMovementState == EPlayerMovementState::Idle)
 			{
@@ -374,7 +455,7 @@ void AShooterCharacter::ChangeFightState(EPlayerFightState NewFightState)
 		case EPlayerFightState::Armed:
 		{
 			SpeedDecelerator = ArmedSpeedCoefficient;
-			UpdateWalkSpeed(CurrentPlayerMovementState);
+			UpdateWalkSpeed();
 				
 			if (CurrentPlayerMovementState == EPlayerMovementState::Idle)
 			{
@@ -395,7 +476,7 @@ void AShooterCharacter::ChangeFightState(EPlayerFightState NewFightState)
 		{
 			//Enter to strafe mode
 			SpeedDecelerator = AimSpeedCoefficient;
-			UpdateWalkSpeed(CurrentPlayerMovementState);
+			UpdateWalkSpeed();
 				
 			GetCharacterMovement()->bOrientRotationToMovement = false;
 			GetCharacterMovement()->bUseControllerDesiredRotation = true;
@@ -415,10 +496,75 @@ void AShooterCharacter::ChangeFightState(EPlayerFightState NewFightState)
 
 }
 
-void AShooterCharacter::UpdateWalkSpeed(EPlayerMovementState CurrentMovementState)
+void AShooterCharacter::ChangeCoverState(EPlayerCoverState NewCoverState)
 {
-	switch (CurrentMovementState)
+	
+	CurrentPlayerCoverState = NewCoverState;
+
+
+	if(NewCoverState == EPlayerCoverState::None)
 	{
+		
+		ChangeFightState(CurrentPlayerFightState);
+		bIsForwardMoveEnabled = true;
+	}
+	else
+	{
+		//TODO better logic?
+		
+
+		GetCharacterMovement()->bOrientRotationToMovement = false;
+		GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		bUseControllerRotationYaw = false;
+		
+		bIsForwardMoveEnabled = false;
+		
+	}
+
+	
+	//TODO camera setting and WalkSpeed
+	switch (NewCoverState)
+	{
+		case EPlayerCoverState::None:
+			{
+				
+				break;
+			}
+		case EPlayerCoverState::CrouchCover:
+			{
+				GetCharacterMovement()->Crouch();
+				
+				break;
+			}
+		case EPlayerCoverState::StandingCover:
+			{
+				
+				break;
+			}
+		case EPlayerCoverState::LeftPeekCover:
+			{
+				
+				break;
+			}
+		case EPlayerCoverState::RightPeekCover:
+			{
+				
+				break;
+			}
+	}
+
+	UpdateWalkSpeed();
+}
+
+
+
+
+void AShooterCharacter::UpdateWalkSpeed()
+{
+	if(CurrentPlayerCoverState == EPlayerCoverState::None)
+	{
+		switch (CurrentPlayerMovementState)
+		{
 		case EPlayerMovementState::Walking:
 		{
 			GetCharacterMovement()->MaxWalkSpeed = MaxWalkSpeed - SpeedDecelerator;
@@ -430,8 +576,16 @@ void AShooterCharacter::UpdateWalkSpeed(EPlayerMovementState CurrentMovementStat
 			GetCharacterMovement()->MaxWalkSpeed = MaxRunSpeed - SpeedDecelerator;
 			break;
 		}
-		default: ;
+		default:;
+		}
 	}
+	else
+	{
+		//TODO Update Speed Based On Cover
+	}
+	
+
+	
 }
 
 
@@ -507,6 +661,51 @@ void AShooterCharacter::UpdateEndFOV()
 	}
 }
 
+FVector AShooterCharacter::CalculateMovementYaw(float AxisValue, bool IsMoveingForward,bool IsAiming)
+{
+	FVector Direction;
+
+	if(IsAiming)
+	{
+		FRotator Rotation = Controller->GetControlRotation();
+		FRotator YawRotation = FRotator(0, Rotation.Yaw, 0);
+		if(IsMoveingForward)
+		{
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal();
+		}
+		else
+		{
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y).GetSafeNormal();
+
+		}
+		
+	}
+	else
+	{
+		const FRotator Rotation = Controller->GetControlRotation();
+		FRotator YawRotation = FRotator(0, Rotation.Yaw, 0);
+		YawRotation.Yaw = AxisValue > 0 ? YawRotation.Yaw : YawRotation.Yaw - 180;
+		FVector TargetDirection;
+		if (IsMoveingForward)
+		{
+			TargetDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X).GetSafeNormal();
+		}
+		else
+		{
+			TargetDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y).GetSafeNormal();
+		}
+		const FRotator PlayerRotation = GetActorRotation();
+		const FRotator PlayerYawRotation = FRotator(0, PlayerRotation.Yaw, 0);
+		const FVector CurrentDirection = FRotationMatrix(PlayerYawRotation).GetUnitAxis(EAxis::X).GetSafeNormal();
+		Direction = FMath::VInterpTo(CurrentDirection, TargetDirection, GetWorld()->GetDeltaSeconds(), MovementLerpSpeed);
+		
+	}
+	
+
+	return Direction;
+	
+}
+
 EPlayerMovementState AShooterCharacter::GetMovementState()
 {
 	return CurrentPlayerMovementState;
@@ -515,6 +714,11 @@ EPlayerMovementState AShooterCharacter::GetMovementState()
 EPlayerFightState AShooterCharacter::GetFightState()
 {
 	return CurrentPlayerFightState;
+}
+
+EPlayerCoverState AShooterCharacter::GetCoverState()
+{
+	return CurrentPlayerCoverState;
 }
 
 
@@ -832,6 +1036,11 @@ float AShooterCharacter::GetDefaultMaxWalkSpeed()
 	return MaxWalkSpeed;
 }
 
+FVector AShooterCharacter::GetLastMovementInput()
+{
+	return LastMovementInput;
+}
+
 
 void AShooterCharacter::ShootEnd()
 {
@@ -872,11 +1081,11 @@ void AShooterCharacter::CharacterDebug()
 	//CurrentPlayerMovementState
 	const FString MovementEnumString = UEnum::GetValueAsString<EPlayerMovementState>(GetMovementState());
 	const FString FightEnumString = UEnum::GetValueAsString<EPlayerFightState>(GetFightState());
+	const FString CoverEnumString = UEnum::GetValueAsString<EPlayerCoverState>(CurrentPlayerCoverState);
 
 
 
 	const FVector ActorForwardVectorNormalize = GetActorForwardVector().GetSafeNormal();
-	const FVector LastMovementInputVectorNormalize = GetLastMovementInputVector().GetSafeNormal();
 
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Speed: " + GetVelocity().ToString());
@@ -885,18 +1094,19 @@ void AShooterCharacter::CharacterDebug()
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "ActorForwardVector: " + ActorForwardVectorNormalize.ToString());
 
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "LastMovementInput: " + LastMovementInputVectorNormalize.ToString());
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "LastMovementInput: " + LastMovementInput.ToString());
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Mesh Component Velocity: " + GetMesh()->GetComponentVelocity().ToString());
 
 
 	FVector StartLoc1 = GetActorLocation();
 	FVector EndLoc1 = StartLoc1 + GetActorForwardVector() * 150;
 	DrawDebugLine(GetWorld(), StartLoc1, EndLoc1, FColor::Magenta);
-
+	
 
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "MovementMode: " + MovementEnumString);
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "FightMode: " + FightEnumString);
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "CoverMode: " + CoverEnumString);
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "GunIndex:  " + FString::FromInt(CurrentGunIndex));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "OrientRotationToMovement:  " + FString((GetCharacterMovement()->bOrientRotationToMovement ? "true" : "false")));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "UseControllerDesiredRotation:  " + FString(GetCharacterMovement()->bUseControllerDesiredRotation ? "true" : "false"));
@@ -904,6 +1114,11 @@ void AShooterCharacter::CharacterDebug()
 
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Is timer active:  " + FString((GetWorldTimerManager().IsTimerActive(FOVTimerHandle) ? "true" : "false")));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "End FOV:  " + FString::SanitizeFloat(EndFOV));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Move Forward Enable:  " + FString(bIsForwardMoveEnabled ? "True" : "False"));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Move Right Enable:  " + FString(bIsRightMoveEnabled ? "True" : "False"));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Actor Rotation: " + GetActorRotation().ToString());
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Mesh Rotation: " + GetMesh()->GetRelativeRotation().ToString());
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Magenta, "Controller Rotation: " + GetControlRotation().ToString());
 
 	APlayerCameraManager* PlayerCamera = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
 	if (PlayerCamera)

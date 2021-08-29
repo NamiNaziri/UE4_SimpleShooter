@@ -49,6 +49,8 @@ void UBasePlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bIsAccelerating = PlayerCharacter->IsAccelerating();
 		RightAxis = PlayerCharacter->GetRightAxis();
 
+		CurrentCoverState = PlayerCharacter->GetCoverState();
+
 		PrevMovementInput = LastMovementInput;
 		LastMovementInput = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal();
 
@@ -297,8 +299,23 @@ float UBasePlayerAnimInstance::CalculateAngleBetweenActorForwardAndMovementInput
 {
 	if(PlayerCharacter)
 	{
+		/*const FVector ActorForwardVectorNormalize = PlayerCharacter->GetActorForwardVector().GetSafeNormal();
+		const FVector LastMovementInputVectorNormalize = PlayerCharacter->GetLastMovementInput();
+		const float ForwardVecDotInputVec = FVector::DotProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
+		const FVector ForwardVecCrossInputVec = FVector::CrossProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
+		const int Neg = (ForwardVecCrossInputVec.Z < 0 ? 1 : -1);
+
+
+		return Neg * UKismetMathLibrary::DegAcos(ForwardVecDotInputVec);*/
+
+		/*const int ActorForwardYaw = int((PlayerCharacter->GetActorForwardVector().Rotation().Yaw + 360)) % 360;
+		const int ControllerYaw = PlayerCharacter->GetControlRotation().Yaw;
+		return ControllerYaw - ActorForwardYaw;*/
+
+
 		const FVector ActorForwardVectorNormalize = PlayerCharacter->GetActorForwardVector().GetSafeNormal();
-		const FVector LastMovementInputVectorNormalize = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal();
+		const FVector LastMovementInputVectorNormalize = (PlayerCharacter->GetControlRotation() + PlayerCharacter->GetLastMovementInput().GetSafeNormal().Rotation()).Vector();
+		
 		const float ForwardVecDotInputVec = FVector::DotProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
 		const FVector ForwardVecCrossInputVec = FVector::CrossProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
 		const int Neg = (ForwardVecCrossInputVec.Z < 0 ? 1 : -1);
@@ -378,7 +395,7 @@ void UBasePlayerAnimInstance::ShowAnimationDebug()
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "PitchOffset:  " + FString::SanitizeFloat(OffsetPitch));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "YawOffset:  " + FString::SanitizeFloat(OffsetYaw));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "Speed:  " + FString::SanitizeFloat(Speed));
-
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "CharacterIsFacingRight:  " + FString(bCharacterIsFacingRight ? "True" : "False"));
 }
 
 

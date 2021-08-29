@@ -6,6 +6,7 @@
 #include "Animation/AnimInstance.h"
 #include "SimpleShooter/Enums/EPlayerMovementState.h"
 #include "SimpleShooter/Enums/EPlayerFightState.h"
+#include "SimpleShooter/Enums/EPlayerCoverState.h"
 #include "BasePlayerAnimInstance.generated.h"
 
 /**
@@ -76,6 +77,9 @@ public:
 		bool IsRightFootUp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+		bool bCharacterIsFacingRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		EPlayerMovementState CurrentMovementState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
@@ -87,6 +91,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		EPlayerFightState PrevFightState;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+		EPlayerCoverState CurrentCoverState;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		AShooterCharacter* PlayerCharacter;
 
@@ -126,6 +134,7 @@ private:
 		bool bWalkStartEntered;
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
 		bool bWalkStopEntered;
+
 
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
 	FRotator ActorCachedRotation;

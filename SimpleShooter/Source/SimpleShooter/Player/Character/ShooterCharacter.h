@@ -7,7 +7,8 @@
 #include "GameFramework/Character.h"
 #include "SimpleShooter/Enums/EPlayerMovementState.h"
 #include "SimpleShooter/Enums/EPlayerFightState.h"
-
+#include "SimpleShooter/Enums/EPlayerCoverState.h"
+#include "SimpleShooter/Player/ActorComponents/CoverComponent.h"
 #include "ShooterCharacter.generated.h"
 
 
@@ -57,7 +58,11 @@ public:
 	UFUNCTION(BlueprintPure)
 		EPlayerFightState GetFightState();
 	UFUNCTION(BlueprintPure)
+		EPlayerCoverState GetCoverState();
+	UFUNCTION(BlueprintPure)
 		float GetDefaultMaxWalkSpeed();
+	UFUNCTION(BlueprintPure)
+		FVector GetLastMovementInput();
 	
 
 	UFUNCTION()
@@ -95,7 +100,12 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = Character)
 		void Shoot();
-	
+
+
+	//Cover
+	//UPROPERTY(Category = Cover, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY()
+		UCoverComponent* CoverComponent;
 private:
 
 	//******************INPUT FUNCTIONS******************//
@@ -136,13 +146,21 @@ private:
 		void Reload();
 
 	virtual void Jump() override;
+
+	UFUNCTION(BlueprintCallable, Category = Cover)
+		void CrouchAndCoverStart();
+
+	UFUNCTION(BlueprintCallable, Category = Cover)
+		void CrouchAndCoverEnd();
+	
 	
 	//******************Character Status******************//
 	void ChangeMovementState(EPlayerMovementState NewMovementState);
 	void ChangeFightState(EPlayerFightState NewFightState);
+	void ChangeCoverState(EPlayerCoverState NewCoverState);
 
 	//Changes walk speed based on current movement state
-	void UpdateWalkSpeed(EPlayerMovementState CurrentMovementState);
+	void UpdateWalkSpeed();
 
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 		void DropWeapon();
@@ -163,8 +181,16 @@ private:
 	//Updates EndFov based on current movement and fight state and enables the timer 
 	UFUNCTION(BlueprintCallable, Category = Camera)
 		void UpdateEndFOV();
-	 
+
+	UFUNCTION(BlueprintCallable, Category = Movement)
+		FVector CalculateMovementYaw(float AxisValue, bool IsMoveForward, bool IsAiming);
+
+	UPROPERTY(EditAnywhere, Category = "Expriment", meta = (AllowPrivateAccess = "true"))
+		float MovementLerpSpeed = 5;
+	
 	float RightAxis; //right axis input
+
+	
 	
 	UPROPERTY(EditAnywhere)
 		float RotationRate = 70;
@@ -209,15 +235,14 @@ private:
 
 
 	//Expriment
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
-		float rightMultiplier = 1;
-
+	FVector LastMovementInput;
 	
 	UPROPERTY()
 	float SpeedDecelerator = 0;
 
 	EPlayerMovementState CurrentPlayerMovementState;
 	EPlayerFightState CurrentPlayerFightState;
+	EPlayerCoverState CurrentPlayerCoverState;
 	float CurrentSpeedCoefficient;
 
 
@@ -225,7 +250,10 @@ private:
 	bool bIsMovingRight;
 	bool bIsHoldingAimButton;
 	bool bIsHoldingRunButton;
+	bool bIsRightMoveEnabled;
+	bool bIsForwardMoveEnabled;
 
+	
 	UPROPERTY(BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 		bool bCharacterDebug;
 
@@ -235,6 +263,9 @@ private:
 	UPROPERTY(BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 		bool bAnimationDebug;
 
+
+	
+	//Camera Settings//
 	UPROPERTY()
 	FTimerHandle FOVTimerHandle;
 	UPROPERTY()
