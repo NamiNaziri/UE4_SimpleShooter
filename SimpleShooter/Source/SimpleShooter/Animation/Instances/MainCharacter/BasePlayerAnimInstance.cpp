@@ -313,15 +313,41 @@ float UBasePlayerAnimInstance::CalculateAngleBetweenActorForwardAndMovementInput
 		return ControllerYaw - ActorForwardYaw;*/
 
 
-		const FVector ActorForwardVectorNormalize = PlayerCharacter->GetActorForwardVector().GetSafeNormal();
-		const FVector LastMovementInputVectorNormalize = (PlayerCharacter->GetControlRotation() + PlayerCharacter->GetLastMovementInput().GetSafeNormal().Rotation()).Vector();
-		
+		/*const FVector ActorForwardVectorNormalize = PlayerCharacter->GetActorForwardVector();
+		UE_LOG(LogTemp, Warning, TEXT("GetActorForwardVector rotation: %s"), *(PlayerCharacter->GetActorForwardVector().Rotation().ToString()));
+		const FVector LastMovementInputVectorNormalize = (PlayerCharacter->GetControlRotation() + PlayerCharacter->GetLastMovementInput().Rotation()).Vector();
+		UE_LOG(LogTemp, Warning, TEXT("Control rotation: %s"), *(PlayerCharacter->GetControlRotation().ToString()));
+		UE_LOG(LogTemp, Warning, TEXT("GetLastMovementInput Rotation: %s"), *(PlayerCharacter->GetLastMovementInput().Rotation().ToString()));
 		const float ForwardVecDotInputVec = FVector::DotProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
 		const FVector ForwardVecCrossInputVec = FVector::CrossProduct(LastMovementInputVectorNormalize, ActorForwardVectorNormalize);
 		const int Neg = (ForwardVecCrossInputVec.Z < 0 ? 1 : -1);
 
 
-		return Neg * UKismetMathLibrary::DegAcos(ForwardVecDotInputVec);
+		return Neg * UKismetMathLibrary::DegAcos(ForwardVecDotInputVec);*/
+
+		int ForwardYaw = (PlayerCharacter->GetActorForwardVector().Rotation().Yaw ) ;
+		UE_LOG(LogTemp, Warning, TEXT("GetActorForwardVector rotation: %s"), *(PlayerCharacter->GetActorForwardVector().Rotation().ToString()));
+		float ControllerYaw = PlayerCharacter->GetControlRotation().Yaw;
+		ControllerYaw = ControllerYaw < 180 ? ControllerYaw : ControllerYaw - 360;
+		
+		
+		const float ControllerInputYaw = ControllerYaw + PlayerCharacter->GetLastMovementInput().Rotation().Yaw;
+		UE_LOG(LogTemp, Warning, TEXT("Control rotation: %s"), *(PlayerCharacter->GetControlRotation().ToString()));
+		UE_LOG(LogTemp, Warning, TEXT("GetLastMovementInput Rotation: %s"), *(PlayerCharacter->GetLastMovementInput().Rotation().ToString()));
+
+		float delta = ControllerInputYaw - ForwardYaw;
+	
+		if(delta  > 0 && delta > 180)
+		{
+			delta -= 360;
+		}
+		else if (delta <0 && delta < -180)
+		{
+			delta += 360;
+		}
+		
+		return delta;
+
 	}
 	return 0;
 }

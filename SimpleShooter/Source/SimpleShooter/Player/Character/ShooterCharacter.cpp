@@ -199,7 +199,7 @@ bool AShooterCharacter::GetAnimationDebug() const
 void AShooterCharacter::Moveforward(float AxisValue)
 {
 	LastMovementInput.X = AxisValue;
-	LastMovementInput.Normalize();
+	//LastMovementInput.Normalize();
 	if( FMath::IsNearlyEqual(AxisValue,0))
 	{
 		bIsMovingForward = false;
@@ -253,7 +253,7 @@ void AShooterCharacter::Moveforward(float AxisValue)
 void AShooterCharacter::MoveRight(float AxisValue)
 {
 	LastMovementInput.Y= AxisValue;
-	LastMovementInput.Normalize();
+	//LastMovementInput.Normalize();
 	
 	RightAxis = AxisValue;
 	if (FMath::IsNearlyEqual(AxisValue, 0))
