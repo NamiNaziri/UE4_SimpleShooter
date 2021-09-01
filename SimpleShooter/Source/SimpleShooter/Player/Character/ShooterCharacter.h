@@ -63,7 +63,14 @@ public:
 		float GetDefaultMaxWalkSpeed();
 	UFUNCTION(BlueprintPure)
 		FVector GetLastMovementInput();
+	UFUNCTION(BlueprintPure)
+		bool GetIsRightMoveEnable();
+	UFUNCTION(BlueprintPure)
+		bool GetIsForwardMoveEnable();
 	
+	UFUNCTION(BlueprintCallable)
+		void SetMovementEnable(bool bEnable);
+
 
 	UFUNCTION()
 	virtual void Landed(const FHitResult& Hit) override;
@@ -106,6 +113,9 @@ public:
 	//UPROPERTY(Category = Cover, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UPROPERTY()
 		UCoverComponent* CoverComponent;
+	UPROPERTY()
+		FVector CoverRightDirection;
+	
 private:
 
 	//******************INPUT FUNCTIONS******************//
@@ -232,6 +242,13 @@ private:
 	float ArmedSpeedCoefficient;
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly , Category = "Movement" ,  meta=(AllowPrivateAccess = "true"))
 	float AimSpeedCoefficient;
+
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+		float NormalAcceleration;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+		float CrouchAcceleration;
+	
 
 
 	//Expriment

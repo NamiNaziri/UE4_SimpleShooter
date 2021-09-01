@@ -39,6 +39,8 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		float CashedAngle;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+		float CashedAnglePrevFrame;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		float Speed;
@@ -78,6 +80,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		bool bCharacterIsFacingRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+		bool bIsForwardMoveEnabled;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+		bool bIsRightMoveEnabled;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 		EPlayerMovementState CurrentMovementState;
@@ -126,8 +134,18 @@ public:
 
 	UFUNCTION()
 		void AnimNotify_WalkStopLeft();
+	
+	UFUNCTION()
+		void AnimNotify_CoverTurnEntered();
+	
+	UFUNCTION()
+		void AnimNotify_CoverTurnLeft();
 
 
+
+
+	UFUNCTION()
+		bool IsCharacterFacingRight();
 private:
 
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
@@ -137,7 +155,7 @@ private:
 
 
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
-	FRotator ActorCachedRotation;
+		FRotator ActorCachedRotation;
 
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
 		FVector ActorCachedLocation;
@@ -147,7 +165,16 @@ private:
 
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
 		FVector ActorCachedRightVector;
+	
+	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
+		bool bCharacterIsFacingRightCached;
 
+
+	//If is leaving the Cover Turn won't change the bCharacterIsFacingRightCached in AnimNotify_SetMovementEnable
+	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
+		bool bIsLeavingCoverTurn ;
+
+	
 private:
 
 	UFUNCTION()
@@ -177,6 +204,10 @@ private:
 	UFUNCTION()
 		void CalculateAndSetAimOffsetPitchAndYaw();
 
+
+
+	UFUNCTION(BlueprintCallable)
+		void SetMovementEnable(bool bEnable);
 
 
 

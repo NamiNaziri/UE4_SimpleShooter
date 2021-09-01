@@ -14,9 +14,11 @@
 #include "DrawDebugHelpers.h"
 UBasePlayerAnimInstance::UBasePlayerAnimInstance()
 {
+	CashedAngle = 0;
 	Speed = 0;
 	internalSpeed = 0;
 	WeaponFABRIKAlpha = 1;
+	bIsLeavingCoverTurn = false;
 }
 
 void UBasePlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
@@ -53,8 +55,11 @@ void UBasePlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 		PrevMovementInput = LastMovementInput;
 		LastMovementInput = PlayerCharacter->GetLastMovementInputVector().GetSafeNormal();
+		bIsRightMoveEnabled = PlayerCharacter->GetIsRightMoveEnable();
+		bIsForwardMoveEnabled = PlayerCharacter->GetIsForwardMoveEnable();
 
 
+		CashedAnglePrevFrame = CashedAngle;
 		CashedAngle = CalculateAngleBetweenActorForwardAndMovementInput();
 		if(bWalkStartEntered)
 		{
@@ -214,6 +219,26 @@ void UBasePlayerAnimInstance::AnimNotify_WalkStopLeft()
 	
 }
 
+void UBasePlayerAnimInstance::AnimNotify_CoverTurnEntered()
+{
+	bIsLeavingCoverTurn = false;
+	bCharacterIsFacingRightCached = bCharacterIsFacingRight;
+	if(PlayerCharacter)
+	{
+		PlayerCharacter->GetMovementComponent()->StopMovementImmediately();
+	}
+}
+
+void UBasePlayerAnimInstance::AnimNotify_CoverTurnLeft()
+{
+	bIsLeavingCoverTurn = true;
+	bCharacterIsFacingRightCached = bCharacterIsFacingRight;
+}
+
+bool UBasePlayerAnimInstance::IsCharacterFacingRight()
+{
+	return bCharacterIsFacingRight;
+}
 
 
 void UBasePlayerAnimInstance::TurnAndWalk()
@@ -409,10 +434,19 @@ void UBasePlayerAnimInstance::CalculateAndSetAimOffsetPitchAndYaw()
 	}
 }
 
+void UBasePlayerAnimInstance::SetMovementEnable(bool bEnable)
+{
+	if(PlayerCharacter)
+	{
+		PlayerCharacter->SetMovementEnable(bEnable);
+	}
+}
+
 void UBasePlayerAnimInstance::ShowAnimationDebug()
 {
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds, FColor::Orange, "Angle: " + FString::FromInt(Angle));
-	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "AngleDelta:  " + FString::FromInt(CashedAngle));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "CashedAngle:  " + FString::FromInt(CashedAngle));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "CashedAnglePrevFrame:  " + FString::FromInt(CashedAnglePrevFrame));
 
 	const FString CurrentMovementEnumString = UEnum::GetValueAsString<EPlayerMovementState>(CurrentMovementState);
 	const FString PrevMovementEnumString = UEnum::GetValueAsString<EPlayerMovementState>(PrevMovementState);
@@ -422,6 +456,9 @@ void UBasePlayerAnimInstance::ShowAnimationDebug()
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "YawOffset:  " + FString::SanitizeFloat(OffsetYaw));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "Speed:  " + FString::SanitizeFloat(Speed));
 	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "CharacterIsFacingRight:  " + FString(bCharacterIsFacingRight ? "True" : "False"));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "CharacterIsFacingRight Cached:  " + FString(bCharacterIsFacingRightCached ? "True" : "False"));
+	GEngine->AddOnScreenDebugMessage(-1, GetWorld()->GetDeltaSeconds(), FColor::Orange, "RightAxis:  " + FString::SanitizeFloat(RightAxis));
+
 }
 
 

@@ -15,6 +15,8 @@
 #include "Engine/EngineBaseTypes.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/PlayerController.h"
+#include "SimpleShooter/Animation/Instances/MainCharacter/BasePlayerAnimInstance.h"
+
 
 // Sets default values
 AShooterCharacter::AShooterCharacter()
@@ -32,7 +34,7 @@ AShooterCharacter::AShooterCharacter()
 
 	MaxWalkSpeed = 300;
 	MaxRunSpeed = 600;
-	MaxCrouchSpeed = 150;
+	MaxCrouchSpeed = 170;
 	FOVSpeed = 1;
 	NotArmedSpeedCoefficient = 0;
 	ArmedSpeedCoefficient = 50;
@@ -40,6 +42,8 @@ AShooterCharacter::AShooterCharacter()
 	SpeedDecelerator = NotArmedSpeedCoefficient;
 	CurrentGunIndex = -1;
 	bIsHoldingAimButton = false;
+	NormalAcceleration = 2048;
+	CrouchAcceleration = 100;
 
 	CurrentSpeedCoefficient = NotArmedSpeedCoefficient;
 	GetCharacterMovement()->MaxWalkSpeed = MaxWalkSpeed - SpeedDecelerator;
@@ -78,6 +82,12 @@ void AShooterCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 
+	///GetCharacterMovement()->bOrientRotationToMovement = false;
+	///GetCharacterMovement()->bUseControllerDesiredRotation = false;
+	///bUseControllerRotationYaw = false;
+
+
+	
 	if(bWantsToGrabWeapon)
 	{
 		GoToNearestWeaponLocation();
@@ -199,6 +209,13 @@ bool AShooterCharacter::GetAnimationDebug() const
 void AShooterCharacter::Moveforward(float AxisValue)
 {
 	LastMovementInput.X = AxisValue;
+
+	if(!bIsForwardMoveEnabled)
+	{
+		return;
+	}
+
+	
 	//LastMovementInput.Normalize();
 	if( FMath::IsNearlyEqual(AxisValue,0))
 	{
@@ -228,7 +245,7 @@ void AShooterCharacter::Moveforward(float AxisValue)
 		
 	}
 
-	if(AxisValue && bIsForwardMoveEnabled)
+	if(AxisValue )
 	{
 		
 
@@ -254,6 +271,11 @@ void AShooterCharacter::MoveRight(float AxisValue)
 {
 	LastMovementInput.Y= AxisValue;
 	//LastMovementInput.Normalize();
+
+	if(!bIsRightMoveEnabled)
+	{
+		return;
+	}
 	
 	RightAxis = AxisValue;
 	if (FMath::IsNearlyEqual(AxisValue, 0))
@@ -298,7 +320,10 @@ void AShooterCharacter::MoveRight(float AxisValue)
 		else
 		{
 			//Since we are changing the rotation Axis Value need to be multiplied by -1
-			AddMovementInput(GetActorRightVector(), -1 * AxisValue );
+
+			
+			
+			AddMovementInput(CoverRightDirection, AxisValue );
 		}
 	}
 	
@@ -338,12 +363,18 @@ void AShooterCharacter::CrouchAndCoverStart()
 		const FCoverQuery CoverQuery = CoverComponent->EnvironmentalQuery();
 		if (CoverQuery.bHitMAx)
 		{
+			CoverRightDirection = FVector::CrossProduct(CoverQuery.HitMAx.ImpactNormal, FVector::UpVector);
+			CoverRightDirection.Normalize();
+			
 			ChangeCoverState(EPlayerCoverState::StandingCover);
 			SetActorRotation(CoverQuery.HitMAx.ImpactNormal.Rotation());
 			
 		}
 		else if (CoverQuery.bHitMin)
 		{
+			CoverRightDirection = FVector::CrossProduct(CoverQuery.HitMin.ImpactNormal, FVector::UpVector);
+			CoverRightDirection.Normalize();
+
 			ChangeCoverState(EPlayerCoverState::CrouchCover);
 		}
 		else
@@ -366,7 +397,9 @@ void AShooterCharacter::CrouchAndCoverEnd()
 void AShooterCharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
-	ChangeMovementState(EPlayerMovementState::Walking);
+
+	//TODO
+	//ChangeMovementState(EPlayerMovementState::Walking);
 }
 
 float AShooterCharacter::GetRightAxis() const
@@ -504,15 +537,27 @@ void AShooterCharacter::ChangeCoverState(EPlayerCoverState NewCoverState)
 
 	if(NewCoverState == EPlayerCoverState::None)
 	{
+
+		//Set actor rotation based on being right or left
+		UBasePlayerAnimInstance* PlayerAnimInstance = Cast<UBasePlayerAnimInstance>(GetMesh()->GetAnimInstance());
+		const FVector NewActorForward = PlayerAnimInstance->IsCharacterFacingRight() ? CoverRightDirection : -1 * CoverRightDirection;
+		SetActorRotation(NewActorForward.Rotation());
+
+
 		
+		GetCharacterMovement()->MaxAcceleration = NormalAcceleration;
 		ChangeFightState(CurrentPlayerFightState);
 		bIsForwardMoveEnabled = true;
 	}
 	else
 	{
+		ChangeMovementState(EPlayerMovementState::Idle);
+		GetCharacterMovement()->MaxAcceleration = CrouchAcceleration;
+
+		
 		//TODO better logic?
 		
-
+		
 		GetCharacterMovement()->bOrientRotationToMovement = false;
 		GetCharacterMovement()->bUseControllerDesiredRotation = false;
 		bUseControllerRotationYaw = false;
@@ -532,12 +577,18 @@ void AShooterCharacter::ChangeCoverState(EPlayerCoverState NewCoverState)
 			}
 		case EPlayerCoverState::CrouchCover:
 			{
+				
+				
 				GetCharacterMovement()->Crouch();
 				
 				break;
 			}
 		case EPlayerCoverState::StandingCover:
 			{
+
+				//TODO this is temporary and needs to be change in changewalkspeed function
+				//TODO add new walk speed for standing cover
+				GetCharacterMovement()->MaxWalkSpeed = MaxCrouchSpeed;
 				
 				break;
 			}
@@ -1040,6 +1091,33 @@ FVector AShooterCharacter::GetLastMovementInput()
 {
 	return LastMovementInput;
 }
+
+bool AShooterCharacter::GetIsRightMoveEnable()
+{
+	return bIsRightMoveEnabled;
+}
+
+bool AShooterCharacter::GetIsForwardMoveEnable()
+{
+	return bIsForwardMoveEnabled;
+}
+
+void AShooterCharacter::SetMovementEnable(bool bEnable)
+{
+	if(CurrentPlayerCoverState == EPlayerCoverState::None)
+	{
+		bIsForwardMoveEnabled = bEnable;
+	}
+	else
+	{
+		bIsForwardMoveEnabled = false;
+	}
+
+	
+	bIsRightMoveEnabled = bEnable;
+	
+}
+
 
 
 void AShooterCharacter::ShootEnd()
