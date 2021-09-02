@@ -141,6 +141,19 @@ public:
 	UFUNCTION()
 		void AnimNotify_CoverTurnLeft();
 
+	UFUNCTION()
+		void AnimNotify_CoverMoveRightLeft();
+
+	UFUNCTION()
+		void AnimNotify_CoverMoveRightFullyBlended();
+
+	UFUNCTION()
+		void AnimNotify_CoverExitEntered();
+
+	UFUNCTION()
+		void AnimNotify_CoverExitLeft();
+
+	
 
 
 
@@ -168,6 +181,9 @@ private:
 	
 	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
 		bool bCharacterIsFacingRightCached;
+
+	UPROPERTY(BlueprintReadWrite, Category = Animation, meta = (AllowPrivateAccess = "true"))
+		bool bIsCoverMoveRightFullyBlended;
 
 
 	//If is leaving the Cover Turn won't change the bCharacterIsFacingRightCached in AnimNotify_SetMovementEnable

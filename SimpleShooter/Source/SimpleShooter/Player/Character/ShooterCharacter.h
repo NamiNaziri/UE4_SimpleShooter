@@ -115,6 +115,8 @@ public:
 		UCoverComponent* CoverComponent;
 	UPROPERTY()
 		FVector CoverRightDirection;
+	UPROPERTY()
+		FVector CoverForwardDirection;
 	
 private:
 

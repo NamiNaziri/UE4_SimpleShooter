@@ -19,6 +19,7 @@ UBasePlayerAnimInstance::UBasePlayerAnimInstance()
 	internalSpeed = 0;
 	WeaponFABRIKAlpha = 1;
 	bIsLeavingCoverTurn = false;
+	bIsCoverMoveRightFullyBlended = false;
 }
 
 void UBasePlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
@@ -233,6 +234,34 @@ void UBasePlayerAnimInstance::AnimNotify_CoverTurnLeft()
 {
 	bIsLeavingCoverTurn = true;
 	bCharacterIsFacingRightCached = bCharacterIsFacingRight;
+}
+
+void UBasePlayerAnimInstance::AnimNotify_CoverMoveRightLeft()
+{
+	bIsCoverMoveRightFullyBlended = false;
+}
+
+void UBasePlayerAnimInstance::AnimNotify_CoverMoveRightFullyBlended()
+{
+	bIsCoverMoveRightFullyBlended = true;
+}
+
+void UBasePlayerAnimInstance::AnimNotify_CoverExitEntered()
+{
+	if(PlayerCharacter)
+	{
+		PlayerCharacter->GetMovementComponent()->StopMovementImmediately();
+		PlayerCharacter->SetMovementEnable(false);
+	}
+}
+
+void UBasePlayerAnimInstance::AnimNotify_CoverExitLeft()
+{
+	if(PlayerCharacter)
+	{
+		PlayerCharacter->SetMovementEnable(true);
+	}
+	
 }
 
 bool UBasePlayerAnimInstance::IsCharacterFacingRight()

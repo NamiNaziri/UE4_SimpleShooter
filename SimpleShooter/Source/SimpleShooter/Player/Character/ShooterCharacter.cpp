@@ -363,6 +363,8 @@ void AShooterCharacter::CrouchAndCoverStart()
 		const FCoverQuery CoverQuery = CoverComponent->EnvironmentalQuery();
 		if (CoverQuery.bHitMAx)
 		{
+
+			CoverForwardDirection = -1 * CoverQuery.HitMAx.ImpactNormal;
 			CoverRightDirection = FVector::CrossProduct(CoverQuery.HitMAx.ImpactNormal, FVector::UpVector);
 			CoverRightDirection.Normalize();
 			
@@ -372,6 +374,7 @@ void AShooterCharacter::CrouchAndCoverStart()
 		}
 		else if (CoverQuery.bHitMin)
 		{
+			CoverForwardDirection = -1 * CoverQuery.HitMin.ImpactNormal;
 			CoverRightDirection = FVector::CrossProduct(CoverQuery.HitMin.ImpactNormal, FVector::UpVector);
 			CoverRightDirection.Normalize();
 
@@ -541,12 +544,16 @@ void AShooterCharacter::ChangeCoverState(EPlayerCoverState NewCoverState)
 		//Set actor rotation based on being right or left
 		UBasePlayerAnimInstance* PlayerAnimInstance = Cast<UBasePlayerAnimInstance>(GetMesh()->GetAnimInstance());
 		const FVector NewActorForward = PlayerAnimInstance->IsCharacterFacingRight() ? CoverRightDirection : -1 * CoverRightDirection;
-		SetActorRotation(NewActorForward.Rotation());
+		//const FRotator NewActorRotation = FRotator(0, CoverForwardDirection.Rotation().Yaw, 0);
+		
+		//SetActorRotation(NewActorRotation);
 
-
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+		GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		bUseControllerRotationYaw = false;
 		
 		GetCharacterMovement()->MaxAcceleration = NormalAcceleration;
-		ChangeFightState(CurrentPlayerFightState);
+		//ChangeFightState(CurrentPlayerFightState);
 		bIsForwardMoveEnabled = true;
 	}
 	else
@@ -809,7 +816,8 @@ void AShooterCharacter::AimEnd()
 	}
 	else
 	{
-		ChangeFightState(EPlayerFightState::NotArmed);
+		if (CurrentPlayerFightState != EPlayerFightState::NotArmed)
+			ChangeFightState(EPlayerFightState::NotArmed);
 	}
 	
 }
